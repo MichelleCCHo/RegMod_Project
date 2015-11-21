@@ -1,0 +1,171 @@
+---
+title: "Analysis of the Impact of Transmission Type on Fuel Efficiency"
+output: html_document
+---
+
+### Executive Summary:
+_Motor Trend_ is interested in understanding the relationship between a set of variables and miles per gallon (MPG) (outcome). They are particularly interested in the following two questions:
+
+* Is an automatic or manual transmission better for MPG?
+* Quantify the MPG difference between automatic and manual transmissions.
+
+By optimizing the linear regression model exploring the relationship between MPG and transmission, I found:
+
+* Yes, a manual transmission is better for MPG than an automatic transmission.
+* The MPG of cars with manual transmission is 2.94 higher than that of cars with automatic transmission. 
+
+This document does not contain any of the R code used to perform the analysis. The .Rmd file can be found on `https://github.com/hoho1109/RegMod_Project`.
+
+### Data Description:
+
+The data was extracted from the 1974 Motor Trend US magazine, and comprises fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973–74 models). The dataset contains a data frame with 32 observations on 11 variables: mpg (miles/(US) gallon), cyl (# of cylinders), disp (displacement in cu.in.), hp (gross horsepower), drat (rear axle ratio), wt (weight in lb/1000), qsec (1/4 mile time), vs (engine V/S), am (transmission), gear (# of forwarded gears), carb (# of carburetors).
+
+```{r dataLoad, echo=FALSE}
+require(datasets)
+data(mtcars)
+```
+
+The only data processing I perform is to transform the transmission (`am`) variable into a `factor` variable with two discrete levels: `automatic = 0` and `manual = 1`. 
+
+```{r dataProcess, echo=FALSE}
+# convert transimission variable into a factor variable
+mtcars$am <- as.factor(mtcars$am)
+
+# renaming the levels to automatic vs. manual
+levels(mtcars$am) <- c("automatic", "manual")
+```
+
+### Data Analysis:
+
+The flow of this analysis is as follows:
+
+1. Visualize fuel efficiency (MPG) against transmission types (automatic vs. manual)
+
+2. Select an appropriate regression for comparing the effect of transmission (automatic vs. manual) on fuel efficiency (MPG).
+
+3. Perform statistical analysis based on the best model and quantify the MPG difference between automatic and manual transmission given there is a statistically signficant difference. 
+
+#### Part I: MPG vs. Transmission Types
+
+I plot fuel efficiency (MPG) by transmission types (automatic vs. manual) (see _**Appendix 1**_). Just by eye insepction, manual transmission could be better for fuel efficiency compared to automatic transmission. Now, I perform statistical analysis to determine whether this is true. If manual is indeed significantly better, then by how much?
+
+```{r MPGvsAM_plot, include=FALSE, echo=FALSE}
+boxplot(mpg ~ am, data = mtcars,
+        main = "MPG by Transmission Type",
+        xlab = "Transmission",
+        ylab = "Miles per gallon (MPG)")
+```
+
+#### Part II: Model Selection
+
+To select the appropriate statistical model, I first examine the pairs plot for the mtcars dataset to observe how each variable relates to one another (see _**Appendix 2**_). Observations from the plot: 1) There appears to be MPG dependence on transmission type; 2) MPG appears to depend on more than just the transmission type and 3) There is co-dependence between other variables. Together, these observations suggest that a model with just the transmission type as the predictor may underfit the data while a model that considers all variables may overfit the data and that an improved model can be constructed by optimizing the list of predictors. 
+
+```{r pairsPlot, include=FALSE, echo=FALSE}
+## see appendix 2 for the pairs plot
+pairs(mtcars, panel=panel.smooth, main="MTCARS Pairs Plot")
+```
+
+##### Model 1: Transmission (`am`) *ONLY*
+```{r model1, include=FALSE}
+# see Appendix 3 for summary
+fit1 <- lm(mpg ~ am, mtcars)
+summary(fit1)
+```
+
+This model has an $R^2$ of `r round(summary(fit1)$adj.r.squared,4)`, meaning that only `r round(summary(fit1)$adj.r.squared,4)*100`% of the data variation is explained by this model (see _**Appendix 3**_). The low $R^2$ value suggests that MPG is confounded by other variables in the dataset and that the model under-fits the data as I have hypothesized earlier. Under-fitting a dataset introduces bias in an analysis. This is probably not very surprising given it is logical that the type of engine, the number of cylinder, weight of the car...etc. may also impact fuel efficiency. And this is also consistent with the pairs plot (see _**Appendix 2**_). 
+
+So next I evaluate a model where all variables are included. 
+
+##### Model 2: *ALL* measured variables
+```{r model2, include=FALSE}
+# see Appendix 4 for summary
+fit2 <- lm(mpg ~ ., mtcars)
+summary(fit2)
+```
+
+This model has an $R^2$ of `r round(summary(fit2)$adj.r.squared,4)`, meaning that `r round(summary(fit2)$adj.r.squared,4)*100`% of the data variation is explained by this model (see _**Appendix 4**_). The second diagnostic test on this model that I am to run is to plot the residual and other variations of this fit (see _**Appendix 5**_). The data appears to be normal and the residual plots do not contain obvious trends that indicate bias. The third and final diagnostic test is determining the inflation factors (_**Appendix 6**_). Many variables have high inflation factor, especially cyl, disp, and wt. This indicates that this model is probably over-fitting the data and therefore introudcing variance inflation as hypotheized. 
+
+Next, I try to improve the model by reducing the number of predictors. 
+
+```{r residualCheckFit2, include=FALSE, echo=FALSE}
+par(mfrow = c(2,2))
+plot(fit2)
+```
+
+```{r varInflationCheckFit2, include=FALSE, echo=FALSE}
+require(car)
+data.frame(vif(fit2))
+```
+
+
+##### Model 3: *OPTIMIZING* the list of predictors
+
+To begin to choose which predictors to include, I inspect the p-values for the previous model fit. More signficant variables would have lower p-values. I construct 4 nested models with the 5 variables that have the least p-values (wt, am, qsec, hp and disp) (see _**Appendix 4**_). And I compare all models constructed using the `anova()` function (see _**Appendix 7**_). From this, I conclude that the best model has three predictors: `wt`, `am`, and `qsec`. Inclusion of any more variables do not provide statistica benefit in fitting the data.
+
+```{r nestedModels, include=FALSE, echo=FALSE}
+fit3 <- lm(mpg ~ wt + am, mtcars)
+fit4 <- lm(mpg ~ wt + am + qsec, mtcars)
+fit5 <- lm(mpg ~ wt + am + qsec + hp, mtcars)
+fit6 <- lm(mpg ~ wt + am + qsec + hp + disp, mtcars)
+
+anova(fit1, fit2, fit3, fit4, fit5, fit6)
+```
+This model explains`r round(summary(fit4)$adj.r.squared,4)*100`% of the data variance (_**Appendix 8**_). The residual plots and variations do not contain obvious trends, indicating the model is not under-fitting the data so that there is no obvious bias (_**Appendix 9**_). The inflation factors for all predictors in this model are low, indicating that the model is not over-fitting the data (_**Appendix 10**_). 
+
+```{r summaryBestfit, echo=FALSE, include=FALSE}
+summary(fit4)
+```
+
+```{r residualCheckFit4, include=FALSE, echo=FALSE}
+par(mfrow = c(2,2))
+plot(fit2)
+```
+
+```{r varInflationCheckFi4, include=FALSE, echo=FALSE}
+data.frame(vif(fit4))
+```
+
+#### Part III: Statistical Analysis/Conclusions
+
+__Based on the best model (refer to _**Appendix 8**_ for the summary), MANUAL transmission is BETTER for fuel efficiency compared to AUTOMATIC transmission by `r round(summary(fit4)$coefficients[3,1],2)` MPG.__
+
+
+### Appendices:
+#### Appendix 1: MPG by Transmission Type
+```{r MPGvsAM_plot, echo=FALSE, results='markup', fig.width=4,fig.height=4}
+```
+
+#### Appendix 2: Pairs Plot
+```{r pairsPlot, echo=FALSE, results='markup'}
+```
+
+#### Appendix 3: Model Summary for Model 1 - Trasmission Only
+```{r model1, echo=FALSE, results='markup'}
+```
+
+#### Appendix 4: Model Summary for Model 2 - All Variables
+```{r model1, echo=FALSE, results='markup'}
+```
+#### Appendix 5: Diagnosing Fit Bias for Model 2
+```{r residualCheckFit2, echo=FALSE, results='markup'}
+```
+
+#### Appendix 6: Diagnosing Variance Inflation for Model 2
+```{r varInflationCheckFit2, echo=FALSE, results='markup'}
+```
+
+#### Appendix 7: Optimizing Predictors
+```{r nestedModels, echo=FALSE, results='markup'}
+```
+
+#### Appendix 8: Summary of Best Model
+```{r summaryBestfit, echo=FALSE, results='markup'}
+```
+
+#### Appendix 9: Diagnosing Fit Bias for the Best Model
+```{r residualCheckFit4, echo=FALSE, results='markup'}
+```
+
+#### Appendix 10: Diagnosing Variance Inflation for the Best Model
+```{r varInflationCheckFi4, echo=FALSE, results='markup'}
+```
