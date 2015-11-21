@@ -108,7 +108,7 @@ fit4 <- lm(mpg ~ wt + am + qsec, mtcars)
 fit5 <- lm(mpg ~ wt + am + qsec + hp, mtcars)
 fit6 <- lm(mpg ~ wt + am + qsec + hp + disp, mtcars)
 
-anova(fit1, fit2, fit3, fit4, fit5, fit6)
+anova(fit1, fit3, fit4, fit5, fit6, fit2)
 ```
 This model explains`r round(summary(fit4)$adj.r.squared,4)*100`% of the data variance (_**Appendix 8**_). The residual plots and variations do not contain obvious trends, indicating the model is not under-fitting the data so that there is no obvious bias (_**Appendix 9**_). The inflation factors for all predictors in this model are low, indicating that the model is not over-fitting the data (_**Appendix 10**_). 
 
